@@ -4,7 +4,6 @@ from app.db.models.project import Project
 from app.db.models.place import Place
 from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.utils.artic_api import artic_client
-import asyncio
 
 
 class ProjectService:
@@ -20,17 +19,13 @@ class ProjectService:
             description=project_in.description,
             start_date=project_in.start_date,
         )
-        
+
         self.db.add(project)
         self.db.flush()
 
         for place_in in project_in.places:
-            exists = asyncio.run(artic_client.validate_place_exists(place_in.external_id))
-            if not exists:
+            if not artic_client.validate_place_exists(place_in.external_id):
                 raise ValueError(f"Place {place_in.external_id} does not exist in Art Institute API")
-
-            if any(p.external_id == place_in.external_id for p in project.places):
-                raise ValueError(f"Place {place_in.external_id} is duplicated in the project")
 
             place = Place(
                 external_id=place_in.external_id,
@@ -51,7 +46,7 @@ class ProjectService:
 
     def update_project(self, project_id: int, project_in: ProjectUpdate):
         project = self.get_project(project_id)
-        
+
         if not project:
             return None
         
@@ -64,7 +59,7 @@ class ProjectService:
 
     def delete_project(self, project_id: int):
         project = self.get_project(project_id)
-        
+
         if not project:
             return None
         

@@ -4,12 +4,12 @@ from typing import List
 
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.services.project_service import ProjectService
-from app.api.dependencies import get_db_session
+from app.db.session import get_db
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
 @router.post("/", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
-def create_project(project_in: ProjectCreate, db: Session = get_db_session()):
+def create_project(project_in: ProjectCreate, db: Session = Depends(get_db)):
     service = ProjectService(db)
     try:
         project = service.create_project(project_in)
@@ -18,12 +18,12 @@ def create_project(project_in: ProjectCreate, db: Session = get_db_session()):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.get("/", response_model=List[ProjectRead])
-def list_projects(db: Session = get_db_session()):
+def list_projects(db: Session = Depends(get_db)):
     service = ProjectService(db)
     return service.list_projects()
 
 @router.get("/{project_id}", response_model=ProjectRead)
-def get_project(project_id: int, db: Session = get_db_session()):
+def get_project(project_id: int, db: Session = Depends(get_db)):
     service = ProjectService(db)
     project = service.get_project(project_id)
     if not project:
@@ -31,7 +31,7 @@ def get_project(project_id: int, db: Session = get_db_session()):
     return project
 
 @router.put("/{project_id}", response_model=ProjectRead)
-def update_project(project_id: int, project_in: ProjectUpdate, db: Session = get_db_session()):
+def update_project(project_id: int, project_in: ProjectUpdate, db: Session = Depends(get_db)):
     service = ProjectService(db)
     project = service.update_project(project_id, project_in)
     if not project:
@@ -39,7 +39,7 @@ def update_project(project_id: int, project_in: ProjectUpdate, db: Session = get
     return project
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: int, db: Session = get_db_session()):
+def delete_project(project_id: int, db: Session = Depends(get_db)):
     service = ProjectService(db)
     try:
         service.delete_project(project_id)
