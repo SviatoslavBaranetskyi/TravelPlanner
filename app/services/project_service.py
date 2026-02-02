@@ -2,8 +2,9 @@ from sqlalchemy.orm import Session
 from app.core.constants import MAX_PLACES_PER_PROJECT
 from app.db.models.project import Project
 from app.db.models.place import Place
-from app.schemas.project import ProjectCreate, ProjectUpdate, PlaceCreate
-from app.utils.artic_api import validate_place_exists
+from app.schemas.project import ProjectCreate, ProjectUpdate
+from app.utils.artic_api import artic_client
+import asyncio
 
 
 class ProjectService:
@@ -19,12 +20,18 @@ class ProjectService:
             description=project_in.description,
             start_date=project_in.start_date,
         )
+        
         self.db.add(project)
         self.db.flush()
 
         for place_in in project_in.places:
-            if not validate_place_exists(place_in.external_id):
+            exists = asyncio.run(artic_client.validate_place_exists(place_in.external_id))
+            if not exists:
                 raise ValueError(f"Place {place_in.external_id} does not exist in Art Institute API")
+
+            if any(p.external_id == place_in.external_id for p in project.places):
+                raise ValueError(f"Place {place_in.external_id} is duplicated in the project")
+
             place = Place(
                 external_id=place_in.external_id,
                 notes=place_in.notes,
@@ -44,20 +51,26 @@ class ProjectService:
 
     def update_project(self, project_id: int, project_in: ProjectUpdate):
         project = self.get_project(project_id)
+        
         if not project:
             return None
+        
         for field, value in project_in.dict(exclude_unset=True).items():
             setattr(project, field, value)
+        
         self.db.commit()
         self.db.refresh(project)
         return project
 
     def delete_project(self, project_id: int):
         project = self.get_project(project_id)
+        
         if not project:
             return None
+        
         if any(p.visited for p in project.places):
             raise ValueError("Cannot delete project with visited places")
+        
         self.db.delete(project)
         self.db.commit()
         return True

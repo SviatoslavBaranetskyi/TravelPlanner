@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.session import Base, engine
 from app.api.routes import project, place
+from app.utils.artic_api import artic_client
 
 
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     yield
     logger.info("Shutting down Travel Planner API...")
+    await artic_client.close()
 
 app = FastAPI(
     title="Travel Planner",

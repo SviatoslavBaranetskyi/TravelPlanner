@@ -1,8 +1,9 @@
+import asyncio
 from sqlalchemy.orm import Session
 from app.core.constants import MAX_PLACES_PER_PROJECT
 from app.db.models.place import Place
-from app.utils.artic_api import validate_place_exists
 from app.schemas.place import PlaceUpdate
+from app.utils.artic_api import artic_client
 
 
 class PlaceService:
@@ -22,7 +23,8 @@ class PlaceService:
         if any(p.external_id == external_id for p in project.places):
             raise ValueError("This place is already added to the project")
 
-        if not validate_place_exists(external_id):
+        exists = asyncio.run(artic_client.validate_place_exists(external_id))
+        if not exists:
             raise ValueError("Place does not exist in Art Institute API")
 
         place = Place(
@@ -39,8 +41,10 @@ class PlaceService:
         place = self.db.query(Place).filter(Place.id == place_id).first()
         if not place:
             return None
+        
         for field, value in place_in.dict(exclude_unset=True).items():
             setattr(place, field, value)
+        
         self.db.commit()
         self.db.refresh(place)
         return place
